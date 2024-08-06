@@ -2,3 +2,7 @@
 *.csharp linguist-detectable=true  
 *.shader linguist-detectable=false  
 *.cginc linguist-detectable=false
+*.nb linguist-detectable=false
+*.m linguist-detectable=false
+*.wl linguist-detectable=false
+*.mx linguist-detectable=false
