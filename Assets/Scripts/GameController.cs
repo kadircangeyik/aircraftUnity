@@ -1,35 +1,42 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 public class GameController : MonoBehaviour
 {
-    public GameObject starPrefab;  // Yıldız prefabı
-    public GameObject playerPrefab; // Player prefabı
-    public int numberOfStars = 10; // Başlangıçta spawn edilecek yıldız sayısı
-    public Vector2 spawnAreaSize = new Vector2(10, 10); // Yıldızların spawn olacağı bölgenin boyutu
-    public Vector2 playerSpawnPosition = new Vector2(0, 0); // Oyuncunun spawn olacağı pozisyon
+    public GameObject starPrefab;
+    public GameObject playerPrefab;
+    public int numberOfStars = 10;
+    public Vector2 spawnAreaSize = new Vector2(10, 10);
+    public Vector2 playerSpawnPosition = new Vector2(0, 0);
 
-    public TMP_Text counterText; 
-    // UI
+    public TMP_Text counterText;
     public GameObject yildizUI;
     public TMP_Text yildizSayisiTxt;
-    private int yildizSayisi = 0;
+
     public PlayerController playerController;
     public TMP_Text levelText;
     public TMP_Text levelUpText;
-    
+    public Joystick joystick;
+    public Slider xpBar;
     public GameObject levelUpPanel;
+    public TMP_Text eklenenXpMiktari;
+    public Button atesButonu;
+
+    public void Kaydet()
+    {
+        PlayerDataManager.Instance.SavePlayerData(playerController.xp, playerController.level, playerController.envanterdekiYildizSayisi);
+    }
+
     void Start()
     {
-        SpawnPlayer(); // Oyuncuyu spawn et
-        SpawnStars(numberOfStars); // Yıldızları spawn et
+        SpawnPlayer();
+        SpawnStars(numberOfStars);
         InvokeRepeating("UpdateSayacText", 1f, 1f);
         playerController = GameObject.FindGameObjectWithTag("Player").GetComponent<PlayerController>();
     }
-
-   
 
     void SpawnStars(int count)
     {
@@ -52,19 +59,13 @@ public class GameController : MonoBehaviour
     public void DecreaseStarCount()
     {
         numberOfStars = Mathf.Max(0, numberOfStars - 1);
-        SpawnStar(); 
-        YildizSayisiArtti();
-    }
-
-    void YildizSayisiArtti()
-    {
-        yildizSayisi++;
-        yildizSayisiTxt.text = yildizSayisi.ToString();
+        SpawnStar();
         StartCoroutine(YildizGosterGizle());
     }
 
     private IEnumerator YildizGosterGizle()
     {
+        yildizSayisiTxt.text = playerController.yildizSayisi.ToString();
         yildizUI.SetActive(true);
         yield return new WaitForSeconds(2f);
         yildizUI.SetActive(false);
@@ -75,16 +76,17 @@ public class GameController : MonoBehaviour
         Instantiate(playerPrefab, playerSpawnPosition, Quaternion.identity);
     }
 
-     void UpdateSayacText()
+    void UpdateSayacText()
     {
         string zaman = string.Format("{0:0}:{1:00}", playerController.minutes, playerController.seconds);
-        if (counterText != null){
-         counterText.text = zaman;
+        if (counterText != null)
+        {
+            counterText.text = zaman;
         }
-        else{
+        else
+        {
             Debug.Log("Hata, counterText null görünüyor!");
         }
-        levelText.text = "Lvl " + playerController.level.ToString();
         levelUpText.text = "New Level:  " + playerController.level.ToString();
     }
 }

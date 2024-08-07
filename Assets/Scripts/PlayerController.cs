@@ -1,114 +1,93 @@
 using System.Collections;
-using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour
 {
     [SerializeField]
     [Header("Oyuncu Ayarları")]
     public float hiz = 1f;
-    public float yonHizi = 4f; // Oyuncu hızları
-    private Rigidbody2D rb; // Oyuncunun Rigidbody'si
-    private Joystick joystick; // Joystick
-    public Button atesButonu; // Ateş etme butonu
-    public GameObject mermiPrefab; // Mermi nesnesi
-    public Transform atesNoktasi; // Merminin çıkış noktası
-    private GameController gameController; // Oyun kontrol scripti
-    public float mermiHizi = 10f; // Mermilerin hızı
-    public float mermiOmru = 2f; // Mermilerin yaşam süresi
-    private bool atesEdebilir = true; // Butona basıldığında bir kez ateş etmeyi sağlamak için
+    public float yonHizi = 4f;
+    private Rigidbody2D rb;
+    public GameObject mermiPrefab;
+    public Transform atesNoktasi;
+    private GameController gameController;
+    public float mermiHizi = 10f;
+    public float mermiOmru = 2f;
+    private bool atesEdebilir = true;
     public float xp;
     public int level;
-    public Slider xpBar; // XP barı
-    private int xpGereken; // Level atlamak için gereken XP miktarı
+    private int xpGereken = 100;
     [Range(0, 5)]
-    public int saglik = 5; // Oyuncunun sağlığı
+    public int saglik = 5;
     private int sayac = 0;
-    public int minutes,seconds;
+    public int minutes, seconds;
+    private float xpArtisZamani = 10f;
+    private float xpZamanSayaci = 0f;
+    public int yildizSayisi = 0;
+    public int envanterdekiYildizSayisi;
 
     void Start()
     {
-        xp = 0;
-        level = 1;
-        xpGereken = 100; // İlk level için gereken XP
         rb = GetComponent<Rigidbody2D>();
-        joystick = FindObjectOfType<Joystick>();
         gameController = FindObjectOfType<GameController>();
-        xpBar = GameObject.Find("xpBar")?.GetComponent<Slider>();
-        // Her saniyede bir sayaç güncelle
+        envanterdekiYildizSayisi = PlayerDataManager.Instance.playerStars;
+
+        xpGereken = 100 + (level - 1) * 250;
+
         InvokeRepeating("UpdateCounter", 1f, 1f);
 
-        atesButonu = GameObject.Find("Split")?.GetComponent<Button>();
-
-        if (atesButonu != null)
+        if (gameController.xpBar != null)
         {
-            atesButonu.onClick.AddListener(OnFireButtonPressed);
-        }
-        else
-        {
-            Debug.LogError("Ateş Butonu bulunamadı");
+            gameController.xpBar.maxValue = xpGereken;
+            gameController.xpBar.value = xp;
         }
 
-        // Kontrol et ve hata mesajı yazdır
-        if (joystick == null)
-        {
-            Debug.LogError("Joystick bulunamadı");
-        }
+        gameController.atesButonu.onClick.AddListener(OnFireButtonPressed);
 
-        if (gameController == null)
-        {
-            Debug.LogError("OyunKontrol bulunamadı");
-        }
-
-        if (xpBar != null)
-        {
-            xpBar.maxValue = xpGereken;
-            xpBar.value = xp;
-        }
+        xp = PlayerDataManager.Instance.playerXP;
+        level = PlayerDataManager.Instance.playerLevel;
     }
 
     void Update()
     {
-        if (joystick != null)
+        if (gameController.joystick != null)
         {
-            // Joystick girişlerini oku
-            float yatayGiris = joystick.Horizontal;
-            float dikeyGiris = joystick.Vertical;
-
-            // Hareket vektörünü hesapla
+            float yatayGiris = gameController.joystick.Horizontal;
+            float dikeyGiris = gameController.joystick.Vertical;
             Vector2 hareket = new Vector2(yatayGiris, dikeyGiris).normalized;
 
-            // Uçaksavarın döneceği yönü hesapla
             if (hareket != Vector2.zero)
             {
                 float aci = Mathf.Atan2(hareket.y, hareket.x) * Mathf.Rad2Deg;
                 rb.rotation = Mathf.LerpAngle(rb.rotation, aci, yonHizi * Time.deltaTime);
             }
 
-            // Sürekli ileri hareket
             rb.velocity = transform.right * hiz;
         }
 
-        // XP kontrolü ve level atlama
         if (xp >= xpGereken)
         {
             LevelUp();
-        }
-
-        if (xpBar != null)
-        {
-            xpBar.value = xp;
         }
     }
 
     void FixedUpdate()
     {
-        // Sınırlar içinde kalmayı sağlama
         rb.position = new Vector2(
             Mathf.Clamp(rb.position.x, -60, 60),
             Mathf.Clamp(rb.position.y, -60, 60)
         );
+
+        if (gameController.xpBar != null)
+        {
+            gameController.xpBar.value = xp;
+        }
+
+        if (gameController.levelText != null)
+        {
+            gameController.levelText.text = "Lvl: " + level.ToString();
+        }
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -117,7 +96,10 @@ public class PlayerController : MonoBehaviour
         {
             gameController.DecreaseStarCount();
             Destroy(other.gameObject);
-            xp += 100;
+            addXp(100);
+            yildizSayisi++;
+            envanterdekiYildizSayisi++;
+            PlayerDataManager.Instance.SavePlayerData(xp, level, envanterdekiYildizSayisi);
         }
     }
 
@@ -127,7 +109,7 @@ public class PlayerController : MonoBehaviour
         {
             Fire();
             atesEdebilir = false;
-            Invoke("ResetFire", 0.3f); // Butona tekrar basılmasını engellemek için kısa bir süre bekle
+            Invoke("ResetFire", 0.3f);
         }
     }
 
@@ -144,9 +126,9 @@ public class PlayerController : MonoBehaviour
             Bullet bullet = mermi.GetComponent<Bullet>();
             if (bullet != null)
             {
-                bullet.SetBulletSpeed(mermiHizi); // Mermiye hız atama
+                bullet.SetBulletSpeed(mermiHizi);
             }
-            Destroy(mermi, mermiOmru); // Belirli bir süre sonra mermiyi yok et
+            Destroy(mermi, mermiOmru);
         }
     }
 
@@ -167,31 +149,59 @@ public class PlayerController : MonoBehaviour
 
     void UpdateCounter()
     {
-        sayac++;  // Sayacı arttır
-          // Dakika ve saniye hesaplama
+        sayac++;
         minutes = sayac / 60;
         seconds = sayac % 60;
-        xp += 10;
+
+        xpZamanSayaci += 1f;
+
+        if (xpZamanSayaci >= xpArtisZamani)
+        {
+            addXp(50);
+            xpZamanSayaci = 0f;
+        }
     }
 
     void LevelUp()
     {
         level++;
-        xp -= xpGereken; // XP sıfırlanır ve kalan XP yeni levele eklenir
-        xpGereken += level * 250; // Her level için gereken XP miktarı arttırılır
+        xp -= xpGereken;
+        xpGereken += level * 250;
 
-        if (xpBar != null)
+        if (gameController.xpBar != null)
         {
-            xpBar.maxValue = xpGereken;
+            gameController.xpBar.maxValue = xpGereken;
         }
 
         Debug.Log("Level atladın! Yeni Level: " + level);
-         StartCoroutine(levelUpPanelGosterGizle());
+        StartCoroutine(LevelUpPanelGosterGizle());
+        PlayerDataManager.Instance.SavePlayerData(xp, level, envanterdekiYildizSayisi);
     }
-     private IEnumerator levelUpPanelGosterGizle()
+
+    private IEnumerator LevelUpPanelGosterGizle()
     {
         gameController.levelUpPanel.SetActive(true);
         yield return new WaitForSeconds(2f);
         gameController.levelUpPanel.SetActive(false);
+    }
+
+    public void addXp(int xpMiktari)
+    {
+        xp += xpMiktari;
+        StartCoroutine(GosterVeKapat(xpMiktari));
+        PlayerDataManager.Instance.SavePlayerData(xp, level, envanterdekiYildizSayisi);
+    }
+
+    private IEnumerator GosterVeKapat(int xpMiktari)
+    {
+        gameController.eklenenXpMiktari.text = "+" + xpMiktari;
+        gameController.eklenenXpMiktari.gameObject.SetActive(true);
+        yield return new WaitForSeconds(2f);
+        gameController.eklenenXpMiktari.gameObject.SetActive(false);
+    }
+
+    void OnApplicationQuit()
+    {
+        PlayerDataManager.Instance.SavePlayerData(xp, level, envanterdekiYildizSayisi);
     }
 }
